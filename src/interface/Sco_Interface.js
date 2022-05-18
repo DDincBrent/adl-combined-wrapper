@@ -163,7 +163,7 @@ class SCORM
 
 		if(!connectionActive)
 		{
-			const API = this.#GetHandle();
+			const API = scorm.API.handle;
 			let errorCode = 0;
 
 			if(API)
@@ -244,7 +244,7 @@ class SCORM
 
 		if(scorm.connection.isActive)
 		{
-			const API = this.#GetHandle();
+			const API = scorm.API.handle;
 			let errorCode = 0;
 
 			if(API)
@@ -314,7 +314,7 @@ class SCORM
 
 		if(scorm.connection.isActive)
 		{
-			const API = this.#GetHandle();
+			const API = scorm.API.handle;
 			let errorCode = 0;
 
 			if(API)
@@ -376,7 +376,7 @@ class SCORM
 
 		if(scorm.connection.isActive)
 		{
-			const API = this.#GetHandle();
+			const API = scorm.API.handle;
 			let errorCode = 0;
 
 			if(API)
@@ -431,7 +431,7 @@ class SCORM
 
 		if(scorm.connection.isActive)
 		{
-			const API = this.#GetHandle();
+			const API = scorm.API.handle;
 
 			if(API)
 				success = scorm.version == '1.2' ? makeBool(API.LMSCommit('')) : makeBool(API.Commit(''));
@@ -588,5 +588,4 @@ class SCORM
 	}
 }
 
-const quokkaDebug = new SCORM(); //?
 export { SCORM };
