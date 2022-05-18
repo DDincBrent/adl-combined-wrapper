@@ -1,21 +1,10 @@
+/*eslint-disable no-unused-vars*/
 /**
 * @description Creates a class for the SCORM API Object
 * @author Brent Williams <brent.williams@ddincmail.org> (https://www.github.com/DDincBrent).
 * @class SCORM
+*
 * @param {String} version Users prefered version of SCORM -- Defaults to 2004
-*/
-
-/*
-	Run Order for old SCORM_API_wrapper.js
-	Initialize and Terminate => API.getHandle()
-		API.getHandle() => API.handle = Api.get()
-			Api.get() => Api.find()
-				Api.find() => returns API '1.2' || API_1484_11 '2004'
-	
-	data.Get() || data.Save() || data.set() => API.getHandle()
-		API.getHandle() => API.handle = Api.get()
-			Api.get() => Api.find()
-				Api.find() => returns API '1.2' || API_1484_11 '2004'
 */
 
 //TODO CREATE PROPER ERRORMSG OBJ AND USE THROW ERROR SO PROCESSES STOP.
@@ -25,21 +14,23 @@ class SCORM
 	constructor(version = 2004)
 	{
 		//NOTE: Using new Object() constructor and using dot notation for setting keys for easier readabiliy.
+		//NOTE: Any Null value is a return value from a function call. It is added here purely for new eyes to understand.
 		this.scorm = new Object(); 
 		this.scorm.version = version;
 		this.scorm.handleCompletionStatus = true;
 		this.scorm.handleExitMode = true;
 		this.scorm.API = { handle: null, isFound: false, Get: null, Find: null };
-		this.scorm.connection = { isActive: false, connected: null };
-		this.scorm.data = { completionStatus: null, exitStatus: null };
-		this.debug = { GetCode: null, GetInfo: null, GetDiagnosticInfo: null };
+		this.scorm.connection = { isActive: false, connected: null, terminated: null };
+		this.scorm.data = { completionStatus: null, exitStatus: null, get: null, set: null, save: null, status: null };
+		console.log(this.scorm); //?
 	}
-	
+
 	//NOTE: SEE IF ANY REFACTORING CAN BE DONE TO METHODOLOGY OF LOOPING THROUGH EACH WINDOW
 	/**
 	* @description Looks for object named API in the LMS, starts at current window and searches each parent till found
 	* @author Brent Williams <brent.williams@ddincmail.org> (https://www.github.com/DDincBrent)
 	* @method GetAPI async 
+	*
 	* @return {Object} Object is API is found, else returns null
 	*/
 	async GetAPI()
@@ -64,7 +55,7 @@ class SCORM
 		API ? scorm.API.isFound = true : console.error('API.get failed: Can\'t find the API!');
 
 		scorm.API.Get = API;
-	}
+	} 
 
 	/**
 	* @description Looks for an object named API
@@ -118,7 +109,7 @@ class SCORM
 	* 
 	*/
 	
-	#SetScoVersion(version,window)
+	#SetScoVersion(version, window)
 	{
 		let API = null;
 		const scorm = this.scorm;
@@ -139,7 +130,7 @@ class SCORM
 	}
 
 	/**
-	* @description Returns handle for the API
+	* @description Sets handle to API if it doesn't exists, or just sets itself to itself
 	* @author Brent Williams <brent.williams@ddincmail.org> (https://www.github.com/DDincBrent).
 	* @method #GetHandle
 	*/
@@ -147,12 +138,12 @@ class SCORM
 	#GetHandle()
 	{
 		const API = this.scorm.API;
-		let handle = API.handle;
+		
+		//Returns this.scorm.API.handle if it already exists
+		if(API.handle && API.isFound)
+			return API.handle;
 
-		//If handle and isFound are false, get API else, API Already exists
-		if(!API.handle && !API.isFound) handle = this.GetAPI();
-
-		API.handle = handle; //?
+		API.handle = this.GetAPI();
 	}
 
 	/**
@@ -165,17 +156,20 @@ class SCORM
 	Initialize()
 	{
 		const scorm = this.scorm, debug = scorm.debug, makeBool = this.#StringToBoolean;
+		const msgPrefix = 'SCORM.connection.initialize';
 		let success = false, status = scorm.data.completionStatus, connectionActive = scorm.connection.isActive;
-
+	
 		console.log('Attempting to connect...');
 
 		if(!connectionActive)
 		{
-			let API = this.#GetHandle();
+			const API = this.#GetHandle();
+			let errorCode = 0;
 
 			if(API)
 			{
 				//Switches bool value of success if it connects to specified version of LMS
+				//REVIEW MAKE TERNARY
 				switch(scorm.version)
 				{
 					case '1.2' : success = makeBool(API.LMSInitialize('')); break;
@@ -184,44 +178,54 @@ class SCORM
 
 				if(success)
 				{
-					//TASK[id=Fallback] Need to create Fall back to double check connection was successfull
-					//TASK Encapsulate code below in if/else that throws errro on else and changes success back to false
-
-					connectionActive = true;
-
-					if(scorm.handleCompletionStatus)
+					errorCode = this.#DebugErrorCode();
+					
+					if(errorCode !== null && errorCode  === 0)
 					{
-						//Sets new launch to incomplete
-						completionStatus = scorm.status('get');
+						connectionActive = true;
 
-						if(completionStatus)
+						if(scorm.handleCompletionStatus)
 						{
-							switch(completionStatus)
-							{
-								case 'not attempted': scorm.status('set', 'incomplete'); break;
-								case 'unknown': scorm.status('set', 'incompelte'); break;
-							}
+							//Sets new launch to incomplete
+							status = scorm.status('get');
 
-							scorm.save();
+							if(status)
+							{
+								//REVIEW MAKE TERNARY
+								switch(status)
+								{
+									case 'not attempted': scorm.status('set', 'incomplete'); break;
+									case 'unknown': scorm.status('set', 'incompelte'); break;
+								}
+
+								scorm.save();
+							}
 						}
 					}
+					else
+					{
+						throw new Error(`${msgPrefix} failed. \nError code: ${errorCode} \nError info: ${this.#DebugGetInfo(errorCode)}`);
+					}
+						
 				}
 				else
 				{
-					//TASK[id=InitError1] ERROR CODE METHOD 
-					throw new Error('API GET FAILED. NO API FOUND');
+					errorCode = this.#DebugErrorCode();
+
+					if(errorCode !== null & errorCode == 0)
+						throw new Error(`${msgPrefix} failed. \nError code: ${errorCode} \nError info: ${this.#DebugGetInfo(errorCode)}`);
+					else
+						throw new Error(`${msgPrefix} failed: No response from server.`);
 				}
 			}
 			else
 			{
-				//TASK[id=InitError2] ERROR CODE METHOD 
-				throw new Error(`Attempting to connect... failed: API is null`);
+				throw new Error(`${msgPrefix} failed: API is null.`);
 			}
 		}
 		else
 		{
-			//TASK[id=InitError3] ERROR CODE METHOD 
-			throw (`Attempting to connect... aborted: Connection already established`);
+			throw (`${msgPrefix} aborted: Connection already established.`);
 		}
 		scorm.connection.connected = success;
 	}
@@ -234,19 +238,22 @@ class SCORM
 
 	Terminate()
 	{
-		const scorm = this.scorm, debug = scorm.debug, makeBool = this.#StringToBoolean;
-		let success = false, status = scorm.data.completionStatus, exitStatus = scorm.data.exitStatus;
+		const status = scorm.data.completionStatus, scorm = this.scorm, debug = scorm.debug, makeBool = this.#StringToBoolean, exitStatus = scorm.data.exitStatus;
+		const msgPrefix = 'SCORM.connection.terminate';
+		let success = false;
 
 		if(scorm.connection.isActive)
 		{
-			let API = this.#GetHandle();
+			const API = this.#GetHandle();
+			let errorCode = 0;
 
 			if(API)
 			{
 				if(scorm.handleExitMode && !exitStatus)
 				{
-					if(completionStatus !== 'completed' && completionStatus !== 'passed')
+					if(status !== 'completed' && status !== 'passed')
 					{
+						//REVIEW MAKE TERNARY
 						switch(scorm.version)
 						{
 							case '1.2': success = scorm.set('cmi.core.exit', 'logout'); break;
@@ -259,10 +266,11 @@ class SCORM
 
 				if(success)
 				{
+					//REVIEW MAKE TERNARY all three conditionals ternaries
 					switch(scorm.version)
 					{
-						case '1.2' : success = makeBoolean(API.LMSFinish('')); break;
-						case '2004': success = makeBoolean(API.Terminate('')); break;
+						case '1.2' : success = makeBool(API.LMSFinish('')); break;
+						case '2004': success = makeBool(API.Terminate('')); break;
 					}
 
 					if(success)
@@ -270,22 +278,290 @@ class SCORM
 
 					if(!success)
 					{
-						//TASK[id=TermError1] CREATE ERROR MESSAGE HERE
-						throw new Error('Failed');
+						errorCode = this.#DebugErrorCode();
+						throw new Error(`${msgPrefix} failed. \nError code: ${errorCode} \nError info: ${this.#DebugGetInfo(errorCode)}`);
 					}
 				}
 			}
 			else
 			{
-				//TASK[id=TermError2] CREATE ERROR MESSAGE HERE
-				throw new Error('Failed: API is null');
+				throw new Error(`${msgPrefix} failed: API is null.`);
 			}
 		}
 		else
 		{
-			//TASK[id=TermError3] CREATE ERROR MESSAGE HERE
-			throw new Error('Aborted: Connection already Terminated');
+			throw new Error(`${msgPrefix} aborted: Connection already terminated.`);
 		}
+
+		scorm.connection.terminated = success;
+		scorm.connection.connected = success;
+	}
+
+	/**
+	* @description Requests information from the LMS
+	* @author Brent Williams <brent.williams@ddincmail.org> (https://www.github.com/DDincBrent).
+	* @method GetData
+	* 
+	* @param {String} str Name of SCORM data model as a string
+	* @return {String} value of the specified model
+	*/
+	
+	GetData(str)
+	{
+		let value = null;
+		const scorm = this.scorm;
+		const msgPrefix = `SCORM.data.get(${str})`;
+
+		if(scorm.connection.isActive)
+		{
+			const API = this.#GetHandle();
+			let errorCode = 0;
+
+			if(API)
+			{
+				//REVIEW MAKE TERNARY
+				switch(scorm.version)
+				{
+					case '1.2': value = API.LMSGetValue(str); break;
+					case '2004': value = API.GetValue(str); break;
+				}
+
+				errorCode = this.#DebugErrorCode();
+
+				if(value !== '' || errorCode === 0)
+				{
+					//REVIEW MAKE TERNARY
+					switch(str)
+					{
+						case 'cmi.core.lesson_status':
+						case 'cmi.completion_status': scorm.data.completionStatus = value; break;
+
+						case 'cmi.core.exit':
+						case 'cmi.exit': scorm.data.exitStatus = value; break;
+					}
+				}
+				else
+				{
+					throw new Error(`${msgPrefix} failed. \nError code: ${errorCode} \nError info: ${this.#DebugGetInfo(errorCode)}`);
+				}
+			}
+			else
+			{
+				throw new Error(`${msgPrefix} failed: API is null.`);
+			}
+		}
+		else
+		{
+			throw new Error(`${msgPrefix} failed: API connection is inactive`);
+		}
+
+		scorm.data.get = String(str);
+	}
+
+	/**
+	* @description Tells lms to pass the value to the named data model
+	* @author Brent Williams <brent.williams@ddincmail.org> (https://www.github.com/DDincBrent).
+	* @method SetData
+	* 
+	* @param {String} str Name of SCORM data model as a string
+	* @param {String} value string containing the value of the specified element to be updated.
+	* @return {Boolean} Successful or not
+	*/
+	
+	SetData(str, value)
+	{
+		let success = false;
+		const scorm = this.scorm, makeBool = this.#StringToBoolean;
+		const msgPrefix = `SCORM.data.set(${str})`;
+
+		if(scorm.connection.isActive)
+		{
+			const API = this.#GetHandle();
+			let errorCode = 0;
+
+			if(API)
+			{
+				//REVIEW MAKE TERNARY
+				switch(scorm.version)
+				{
+					case '1.2': success = makeBool(API.LMSSetValue(str, value)); break;
+					case '2004': success = makeBool(API.SetValue(str, value)); break;
+				}
+
+				if(success)
+				{
+					//Check if course is complete
+					if(str === 'cmi.core.lesson_status' || str === 'cmi.completion_status')
+						scorm.data.completionStatus = value;
+				}
+				else
+				{
+					//NOTE AQUIRE ERROR CODE FOR FALLBACK
+					errorCode = this.#DebugErrorCode();
+					throw new Error(`${msgPrefix} failed. \nError code: ${errorCode} \nError info: ${this.#DebugGetInfo(errorCode)}`);
+				}
+			}
+			else
+			{
+				throw new Error(`${msgPrefix} failed: API is null.`);
+			}
+		}
+		else
+		{
+			//TASK[id=SetDataErr1] CREATE ERROR MESSAGE HERE
+			throw new Error(`${msgPrefix} failed: API connection is inactive.`);
+		}
+
+		scorm.data.set = success;
+	}
+
+	/**
+	* @description Tells LMS to save all data up to this point in the session
+	* @author Brent Williams <brent.williams@ddincmail.org> (https://www.github.com/DDincBrent).
+	*
+	* @method SaveData
+	* @return {Boolean}
+	*/
+	
+	SaveData()
+	{
+		let success = false;
+		const scorm = this.scorm, makeBool = this.#StringToBoolean;
+		const msgPrefix = `SCORM.data.save failed`;
+
+		if(scorm.connection.isActive)
+		{
+			const API = this.#GetHandle();
+
+			if(API)
+				success = scorm.version == '1.2' ? makeBool(API.LMSCommit('')) : makeBool(API.Commit(''));
+			else
+				throw new Error(`${msgPrefix}: API is null.`);
+		}
+		else
+		{
+			throw new Error(`${msgPrefix}: API Connection is inactive.`);
+		}
+		scorm.data.save = success;
+	}
+
+	/**
+	* @description Gets the status of an item
+	* @author Brent Williams <brent.williams@ddincmail.org> (https://www.github.com/DDincBrent).
+	* @method Status
+	* 
+	* @param {String} action Status to retrieve from the LMS  (GET|SET)
+	* @param {String} status value to set data to
+	*/
+	
+	Status(action, status)
+	{
+		const scorm = this.scorm;
+		const msgPrefix = `SCORM.Status failed:`;
+		let success = false;
+		let cmi = '';
+
+		if(action !== null)
+		{
+			cmi = scorm.version === '1.2' ? 'cmi.core.lesson_status' : 'cmi.completion_status';
+
+			switch(action)
+			{
+				case 'get': success = this.GetData(cmi); break;
+
+				case 'set': 
+					if(status !== null)
+					{
+						success = this.SetData(cmi, status);
+					}
+					else
+					{
+						success = false;
+						throw new Error(`${msgPrefix} status was not specified.`);
+					}
+					break;
+				
+				default:
+					success = false;
+					throw new Error(`${msgPrefix} No valid action was specified.`);
+
+			}
+		}
+		else
+		{
+			throw new Error(`${msgPrefix} No action was given.`);
+		}
+
+		scorm.data.status = success;
+	}
+
+	/**
+	* @description Request the error code for the current error in the LMS
+	* @author Brent Williams <brent.williams@ddincmail.org> (https://www.github.com/DDincBrent).
+	*
+	* @method #DebugErrorCode 
+	* @return {Number} LMS error code
+	*/
+	
+	#DebugErrorCode()
+	{
+		const scorm = this.scorm, API = scorm.API.handle;
+		const err = () => { throw new Error('SCORM.debug.DebugErrorCode failed: API is null.'); };
+		let code = 0;
+		
+
+		API ?
+			scorm.version == '1.2' ? 
+				code = parseInt(API.LMSGetLastError(), 10) : code = parseInt(API.GetLastError(), 10)
+			: err();
+
+		return code;
+	}
+
+	/**
+	* @description Request string value of ErrorCode
+	* @author Brent Williams <brent.williams@ddincmail.org> (https://www.github.com/DDincBrent).
+	* @method #DebugGetInfo
+	* 
+	* @param {Number} errorCode LMS Error code to get more information on
+	* @return {String} Textual description of the Error.
+	*/
+	
+	#DebugGetInfo(errorCode)
+	{
+		const scorm = this.scorm, API = scorm.API.handle;
+		const err = () => { throw new Error('SCORM.debug.DebuggGetInfo failed: API is null.'); };
+		let result = '';
+
+		API ? 
+			scorm.version == '1.2' ?
+				result = API.LMSGetErrorString(errorCode) : result = API.GetErrorString(errorCode)
+			: err();
+			
+		return String(result);
+	}
+
+	/**
+	* @description LMS Specific use- Lets LMS define additional diagnostic information through the API instance.
+	* @author Brent Williams <brent.williams@ddincmail.org> (https://www.github.com/DDincBrent).
+	* @method #DebugDiagnosticInfo
+	* 
+	* @param {Number} errorCode Error code given by the LMS
+	* @return {String} Extra diagnostic information
+	*/
+	
+	#DebugDiagnosticInfo(errorCode)
+	{
+		const scorm = this.scorm, API = scorm.API.handle;
+		const err = () => { throw new Error('SCORM.debug.DebuggGetInfo failed: API is null.'); };
+		let result = '';
+
+		API ? 
+			scorm.version == '1.2' ? 
+				result = API.LMSGetDiagnostic(errorCode) : result = API.GetDiagnostic(errorCode)
+			: err();
+
+		return String(result);
 	}
 
 	/**
@@ -312,6 +588,5 @@ class SCORM
 	}
 }
 
-const temp = new SCORM();
- //?
+const quokkaDebug = new SCORM(); //?
 export { SCORM };
