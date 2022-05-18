@@ -2,6 +2,8 @@
   "name": "adl-combined-wrapper",
   "version": "1.0.0",
   "description": "Combination Wrapper for SCORM and xAPI",
+  "type": "module",
+  "main": "ADL_WRAPPER.js",
   "scripts": {
     "build": "webpack --config webpack.production.config.js",
     "dev": "webpack serve --config webpack.dev.config.js --hot"
@@ -68,7 +70,7 @@
         }
       ],
       "no-console": "off",
-      "no-empty-function": "error",
+      "no-empty-function": "warn",
       "no-floating-decimal": "error",
       "no-inline-comments": "error",
       "no-shadow": [
@@ -86,7 +88,7 @@
       "no-lonely-if": "off",
       "no-undef": "off",
       "object-curly-spacing": [
-        "error",
+        "warn",
         "always"
       ],
       "prefer-const": "warn",
@@ -129,5 +131,14 @@
   "bugs": {
     "url": "https://github.com/DDincBrent/scorm-api-wrapper/issues"
   },
-  "homepage": "https://github.com/DDincBrent/scorm-api-wrapper#readme"
+  "homepage": "https://github.com/DDincBrent/scorm-api-wrapper#readme",
+  "dependencies": {
+    "eslint": "^8.15.0",
+    "jsdom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.17.12",
+    "@babel/preset-env": "^7.17.12",
+    "babel-loader": "^8.2.5"
+  }
 }
