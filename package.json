@@ -45,7 +45,7 @@
       ],
       "curly": [
         "error",
-        "multi",
+        "multi-or-nest",
         "consistent"
       ],
       "dot-location": [
@@ -55,7 +55,11 @@
       "handle-callback-err": "off",
       "indent": [
         "warn",
-        "tab"
+        "tab",
+		{ 
+			"SwitchCase": 1,
+			"ignoreComments": true 
+		}
       ],
       "max-nested-callbacks": [
         "error",
@@ -72,7 +76,6 @@
       "no-console": "off",
       "no-empty-function": "warn",
       "no-floating-decimal": "error",
-      "no-inline-comments": "error",
       "no-shadow": [
         "error",
         {
@@ -94,7 +97,10 @@
       "prefer-const": "warn",
       "quotes": [
         "error",
-        "single"
+        "single",
+		{
+			"allowTemplateLiterals" : true
+		}
       ],
       "semi": "error",
       "no-trailing-spaces": "off",
