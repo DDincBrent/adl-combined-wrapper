@@ -2,11 +2,20 @@
   "name": "adl-combined-wrapper",
   "version": "1.0.0",
   "description": "Combination Wrapper for SCORM and xAPI",
-  "type": "module",
   "main": "ADL_WRAPPER.js",
   "scripts": {
-    "build": "webpack --config webpack.production.config.js",
-    "dev": "webpack serve --config webpack.dev.config.js --hot"
+    "build": "cross-env NODE_ENV=production webpack --config webpack.config.cjs",
+    "test": "cross-env NODE_ENV=development webpack --config webpack.config.cjs"
+  },
+  "type": "module",
+  "quokka": {
+    "showSingleInlineValue": true,
+    "babel": true,
+	"nativeEsm": true,
+    "plugins": [
+      "jsdom-quokka-plugin",
+      "clean-webpack-plugin"
+    ]
   },
   "eslintConfig": {
     "extends": "eslint:recommended",
@@ -56,10 +65,10 @@
       "indent": [
         "warn",
         "tab",
-		{ 
-			"SwitchCase": 1,
-			"ignoreComments": true 
-		}
+        {
+          "SwitchCase": 1,
+          "ignoreComments": true
+        }
       ],
       "max-nested-callbacks": [
         "error",
@@ -98,9 +107,9 @@
       "quotes": [
         "error",
         "single",
-		{
-			"allowTemplateLiterals" : true
-		}
+        {
+          "allowTemplateLiterals": true
+        }
       ],
       "semi": "error",
       "no-trailing-spaces": "off",
@@ -139,12 +148,16 @@
   },
   "homepage": "https://github.com/DDincBrent/scorm-api-wrapper#readme",
   "dependencies": {
+    "clean-webpack-plugin": "^4.0.0",
     "eslint": "^8.15.0",
     "jsdom": "^19.0.0"
   },
   "devDependencies": {
+    "@babel/cli": "^7.17.10",
     "@babel/core": "^7.17.12",
     "@babel/preset-env": "^7.17.12",
-    "babel-loader": "^8.2.5"
+    "babel-loader": "^8.2.5",
+    "cross-env": "^7.0.3",
+    "gulp": "^4.0.2"
   }
 }

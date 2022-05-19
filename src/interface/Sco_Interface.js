@@ -1,4 +1,6 @@
 /*eslint-disable no-unused-vars*/
+//TASK CREATE METHOD THAT UPDATES PASSED PROPERTY AND RETURNS THE VALUE.
+//NOTE SAVES LINE SPACE FROM UPDATING SCORM.API PROPERTY AND RETURN THE API
 /**
 * @description Creates a class for the SCORM API Object
 * @author Brent Williams <brent.williams@ddincmail.org> (https://www.github.com/DDincBrent).
@@ -36,25 +38,29 @@ class SCORM
 	async GetAPI()
 	{
 		const win = window;
-		const scorm = this.scorm; //?
-		const find = await this.#FindAPI();
+		const scorm = this.scorm;
+		const find = await this.#FindAPI;
 			
+		let promise = null;
 		let API = null;
 
-		API = find(win);
+		promise = find(win);
 
-		if(!API && win.parent && win.parent != win)
-			API = find(win.parent);
+		if(!promise && win.parent && win.parent != win)
+			promise = find(win.parent);
 
-		if(!API && win.top && win.top.opener)
-			API = find(win.top.opener);
+		if(!promise && win.top && win.top.opener)
+			promise = find(win.top.opener);
 
-		if(!API && win.top && win.top.opener && win.top.opener.document)
-			API = find(win.top.opener.document);
+		if(!promise && win.top && win.top.opener && win.top.opener.document)
+			promise = find(win.top.opener.document);
 
-		API ? scorm.API.isFound = true : console.error('API.get failed: Can\'t find the API!');
+		console.log(promise);
+		API = this.#SetScoVersion(scorm.version, promise); //?
+		promise ? scorm.API.isFound = true : console.error('API.get failed: Can\'t find the API!');
 
-		scorm.API.Get = API;
+		scorm.API.Get = API; //?
+		return API; //?
 	} 
 
 	/**
@@ -66,12 +72,13 @@ class SCORM
 	* @return {Object} Object of API if found, else returns null
 	*/
 	
+	//TASK[id=PromiseUndefinedConstructor] Refactor so promise doesn't use an constructors. this reference inside arrow function is no longer scoped to SCORM Class.
 	#FindAPI(window)
 	{
 		return new Promise((resolve, reject) => 
 		{
 			let attempts = 0;
-			const scorm = this.scorm;
+			//const scorm = this.scorm; //TASK DELETE ONCE NEW FIX IS CONFIRMED WORKING
 			const maxAttempts = 500;
 			
 			for (const win in window)
@@ -95,7 +102,8 @@ class SCORM
 					reject(new Error(`Maximum attempts reached without successfully finding the API: Attempts: ${attempts} MaxAttempts: ${maxAttempts}`));
 			}
 
-			resolve(this.#SetScoVersion(scorm.version, window));
+			//resolve(this.#SetScoVersion(scorm.version, window));
+			resolve(window);
 		});
 	}
 
@@ -124,9 +132,10 @@ class SCORM
 
 		window.API_1484_11 ? 
 			scorm.version = '2004' : window.API ? 
-				scorm.version = '1.2' : console.error('Error find API');
+				scorm.version = '1.2' : console.error('Error finding API');
 
 		scorm.API.Find = API;
+		return API;
 	}
 
 	/**
@@ -138,12 +147,19 @@ class SCORM
 	#GetHandle()
 	{
 		const API = this.scorm.API;
+		console.log(API);
+
+		console.groupCollapsed('API LOGS');
+		console.log(` API.handle found: ${API.handle}`);
+		console.log(` API.isFound: ${API.isFound}`);
 		
 		//Returns this.scorm.API.handle if it already exists
 		if(API.handle && API.isFound)
 			return API.handle;
 
-		API.handle = this.GetAPI();
+		
+		console.log(`Aquiring API...`);
+		API.handle = this.GetAPI(); //?
 	}
 
 	/**
@@ -163,7 +179,7 @@ class SCORM
 
 		if(!connectionActive)
 		{
-			const API = scorm.API.handle;
+			const API = this.#GetHandle();
 			let errorCode = 0;
 
 			if(API)
@@ -587,5 +603,8 @@ class SCORM
 		}
 	}
 }
+
+const adl = new SCORM('2004');
+adl.Initialize();
 
 export { SCORM };
