@@ -24,7 +24,6 @@ class SCORM
 		this.scorm.API = { handle: null, isFound: false, Get: null, Find: null };
 		this.scorm.connection = { isActive: false, connected: null, terminated: null };
 		this.scorm.data = { completionStatus: null, exitStatus: null, get: null, set: null, save: null, status: null };
-		console.log(this.scorm); //?
 	}
 
 	//NOTE: SEE IF ANY REFACTORING CAN BE DONE TO METHODOLOGY OF LOOPING THROUGH EACH WINDOW
@@ -37,29 +36,43 @@ class SCORM
 	*/
 	async GetAPI()
 	{
-		const win = window;
-		const scorm = this.scorm;
-		const find = await this.#FindAPI;
-			
-		let promise = null;
+		let request = null;
 		let API = null;
 
-		promise = find(win);
+		const PromiseCheck = this.#GetPromiseStatus;
+		const win = window;
+		const scorm = this.scorm;
+		const promises = [];
+			
+		request = await this.#FindAPI(win, scorm.version);
+		promises.push(request);
 
-		if(!promise && win.parent && win.parent != win)
-			promise = find(win.parent);
+		if(!PromiseCheck(promises) && win.parent && win.parent != win)
+		{
+			promises.splice(0, promises.length); 
+			request = await this.#FindAPI(win.parent, scorm.version);
+		}
 
-		if(!promise && win.top && win.top.opener)
-			promise = find(win.top.opener);
+		if(!PromiseCheck(promises) && win.top && win.top.opener)
+		{
+			promises.splice(0, promises.length); 
+			request = await this.#FindAPI(win.parent, scorm.version);
+		}
 
-		if(!promise && win.top && win.top.opener && win.top.opener.document)
-			promise = find(win.top.opener.document);
+		if(!PromiseCheck(promises) && win.top && win.top.opener && win.top.opener.document)
+		{
+			promises.splice(0, promises.length); 
+			request = await this.#FindAPI(win.parent, scorm.version);
+		}
+			
+		request
+			.then((results) => results.forEach((result) => console.log(result.status)));
 
-		console.log(promise);
-		API = this.#SetScoVersion(scorm.version, promise); //?
-		promise ? scorm.API.isFound = true : console.error('API.get failed: Can\'t find the API!');
+		//API = request;
+		// request ? scorm.API.isFound = true : console.error('API.get failed: Can\'t find the API!');
 
-		scorm.API.Get = API; //?
+		// scorm.API.Find = API; //REVIEW- FIND WHY PIPWERKS SET FIND AND GET TO THE SAME API REFERENCE
+		// scorm.API.Get = API; //?
 		return API; //?
 	} 
 
@@ -73,13 +86,14 @@ class SCORM
 	*/
 	
 	//TASK[id=PromiseUndefinedConstructor] Refactor so promise doesn't use an constructors. this reference inside arrow function is no longer scoped to SCORM Class.
-	#FindAPI(window)
+	#FindAPI(window, version)
 	{
 		return new Promise((resolve, reject) => 
 		{
-			let attempts = 0;
-			//const scorm = this.scorm; //TASK DELETE ONCE NEW FIX IS CONFIRMED WORKING
 			const maxAttempts = 500;
+			let attempts = 0;
+			let API = null;
+			//const scorm = this.scorm; //TASK DELETE ONCE NEW FIX IS CONFIRMED WORKING
 			
 			for (const win in window)
 			{
@@ -89,21 +103,25 @@ class SCORM
 				const canAttempt = (attempts <= maxAttempts);
 
 				if(apiFound && currentWin && topWindow && canAttempt)
-				{
-					attempts++;
 					window = win.parent;
-				}
 				else
-				{
 					break;
-				}
 
-				if(!canAttempt)
-					reject(new Error(`Maximum attempts reached without successfully finding the API: Attempts: ${attempts} MaxAttempts: ${maxAttempts}`));
+				attempts++;
 			}
 
-			//resolve(this.#SetScoVersion(scorm.version, window));
-			resolve(window);
+			window.API_1484_11 ? 
+				scorm.version = '2004' : window.API ? 
+					scorm.version = '1.2' : console.error('Error finding API');
+
+			version == '2004' ? 
+				window.API_1484_11 ? 
+					resolve(API = window.API_1484_11) : reject(console.warn('API_1484_11 NOT FOUND'))
+				: window.API ? 
+					resolve(API = window.API) : reject(console.warn('API NOT FOUND'));
+
+			//scorm.API.Find = API;
+			//resolve(API);
 		});
 	}
 
@@ -117,18 +135,16 @@ class SCORM
 	* 
 	*/
 	
-	#SetScoVersion(version, window)
+	#SetScoVersion(version, window) //NOTE DELETE AFTER SUCCESSFULL TEST NEEDS MERGED WITH #FINDAPI
 	{
 		let API = null;
 		const scorm = this.scorm;
 
-		//TASK[id=CreateErrorMsgs] EDIT SO NO ERROR IS THROWN AND IT AUTO SWITCHES TO AVAILABLE VERSION BUT JUST WARNS THE USER
-
 		version == '2004' ? 
 			window.API_1484_11 ? 
-				API = window.API_1484_11 : console.error('API_1484_11 NOT FOUND') 
+				API = window.API_1484_11 : console.warn('API_1484_11 NOT FOUND') 
 			: window.API ? 
-				API = window.API : console.error('API NOT FOUND');
+				API = window.API : console.warn('API NOT FOUND');
 
 		window.API_1484_11 ? 
 			scorm.version = '2004' : window.API ? 
@@ -601,6 +617,25 @@ class SCORM
 			case 'undefined': return null;
 			default: return false;
 		}
+	}
+
+	/**
+	* @description returns current status of promise(s): Fulfilled or rejected
+	* @author Brent Williams <brent.williams@ddincmail.org> (https://www.github.com/DDincBrent).
+	* @method GetPromiseStatus
+	* 
+	* @param {Arrary} promises Iterable array of 1 promise to check if it is fulfilled or not. 
+	* @return {Boolean} true if fulfilled, false if rejected
+	*/
+	
+	#GetPromiseStatus(promises)
+	{
+		let status = null;
+
+		Promise.allSettled(promises)
+			.then((results) => results.forEach((result) => status = result.status));
+			
+		return status === 'fulfilled' ? true : false; //?
 	}
 }
 
